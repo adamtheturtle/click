@@ -202,3 +202,15 @@ def test_env():
     assert result.output == 'ENV=some_value\n'
 
     assert os.environ == env_orig
+
+
+def test_separate_stdout_stderr():
+    @click.command()
+    def cli_output():
+        sys.stdout.write('1')
+        sys.stderr.write('2')
+
+    runner = CliRunner()
+    result = runner.invoke(cli_output)
+    assert '1' in result.output
+    assert '2' in result.output

@@ -167,12 +167,13 @@ class CliRunner(object):
             if self.echo_stdin:
                 input = EchoingStdin(input, bytes_output)
         else:
-            bytes_output = io.BytesIO()
+            bytes_stdout = io.BytesIO()
+            bytes_stderr = io.BytesIO()
             if self.echo_stdin:
-                input = EchoingStdin(input, bytes_output)
+                input = EchoingStdin(input, bytes_stdout)
             input = io.TextIOWrapper(input, encoding=self.charset)
-            sys.stdout = sys.stderr = io.TextIOWrapper(
-                bytes_output, encoding=self.charset)
+            sys.stdout = io.TextIOWrapper(bytes_stdout, encoding=self.charset)
+            sys.stderr = io.TextIOWrapper(bytes_stderr, encoding=self.charset)
 
         sys.stdin = input
 
@@ -242,7 +243,8 @@ class CliRunner(object):
             clickpkg.formatting.FORCED_WIDTH = old_forced_width
 
     def invoke(self, cli, args=None, input=None, env=None,
-               catch_exceptions=True, color=False, **extra):
+               catch_exceptions=True, color=False, combined_output=False,
+               **extra):
         """Invokes a command in an isolated environment.  The arguments are
         forwarded directly to the command line script, the `extra` keyword
         arguments are passed to the :meth:`~clickpkg.Command.main` function of
@@ -300,6 +302,8 @@ class CliRunner(object):
                 exc_info = sys.exc_info()
             finally:
                 sys.stdout.flush()
+                # import rpdb; rpdb.set_trace()
+                # import pdb; pdb.set_trace()
                 output = out.getvalue()
 
         return Result(runner=self,
