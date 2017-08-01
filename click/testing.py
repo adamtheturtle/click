@@ -175,7 +175,10 @@ class CliRunner(object):
                 if self.echo_stdin:
                     input = EchoingStdin(input, bytes_output)
             else:
-                pass
+                sys.stdout = bytes_stdout = StringIO()
+                sys.stderr = bytes_stderr = StringIO()
+                if self.echo_stdin:
+                    input = EchoingStdin(input, bytes_stdout)
         else:
             if combined_output:
                 bytes_output = io.BytesIO()
