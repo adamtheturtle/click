@@ -204,6 +204,20 @@ def test_env():
     assert os.environ == env_orig
 
 
+def test_isolation(runner):
+    with runner.isolation() as out:
+        click.echo('1')
+        click.echo('2', err=True)
+        assert out.getvalue() == b'1\n2\n'
+
+    with runner.isolation(combined_output=False) as out:
+        click.echo('1')
+        click.echo('2', err=True)
+        stdout, stderr = out
+        assert stdout.getvalue() == b'1\n'
+        assert stderr.getvalue() == b'2\n'
+
+
 def test_separate_stdout_stderr():
     @click.command()
     def cli_output():
@@ -214,3 +228,4 @@ def test_separate_stdout_stderr():
     result = runner.invoke(cli_output)
     assert '1' in result.output
     assert '2' in result.output
+

@@ -135,7 +135,8 @@ class CliRunner(object):
         return rv
 
     @contextlib.contextmanager
-    def isolation(self, input=None, env=None, color=False):
+    def isolation(self, input=None, env=None, color=False,
+                  combined_output=True):
         """A context manager that sets up the isolation for invoking of a
         command line tool.  This sets up stdin with the given input data
         and `os.environ` with the overrides from the given dictionary.
@@ -147,10 +148,16 @@ class CliRunner(object):
         .. versionadded:: 4.0
            The ``color`` parameter was added.
 
+        .. versionadded:: 6.8
+           The ``combined_output`` parameter was added.
+
         :param input: the input stream to put into sys.stdin.
         :param env: the environment overrides as dictionary.
         :param color: whether the output should contain color codes. The
                       application can still override this explicitly.
+        :param combined_output: TODO
+
+        :returns...:
         """
         input = make_input_stream(input, self.charset)
 
@@ -163,17 +170,33 @@ class CliRunner(object):
         env = self.make_env(env)
 
         if PY2:
-            sys.stdout = sys.stderr = bytes_output = StringIO()
-            if self.echo_stdin:
-                input = EchoingStdin(input, bytes_output)
+            if combined_output:
+                sys.stdout = sys.stderr = bytes_output = StringIO()
+                if self.echo_stdin:
+                    input = EchoingStdin(input, bytes_output)
+            else:
+                pass
         else:
-            bytes_stdout = io.BytesIO()
-            bytes_stderr = io.BytesIO()
-            if self.echo_stdin:
-                input = EchoingStdin(input, bytes_stdout)
+            if combined_output:
+                bytes_output = io.BytesIO()
+                if self.echo_stdin:
+                    input = EchoingStdin(input, bytes_output)
+                sys.stdout = sys.stderr = io.TextIOWrapper(
+                    bytes_output, encoding=self.charset)
+            else:
+                bytes_stdout = io.BytesIO()
+                bytes_stderr = io.BytesIO()
+
+                if self.echo_stdin:
+                    input = EchoingStdin(input, bytes_stdout)
+
+                sys.stdout = io.TextIOWrapper(
+                    bytes_stdout, encoding=self.charset)
+
+                sys.stderr = io.TextIOWrapper(
+                    bytes_stderr, encoding=self.charset)
+
             input = io.TextIOWrapper(input, encoding=self.charset)
-            sys.stdout = io.TextIOWrapper(bytes_stdout, encoding=self.charset)
-            sys.stderr = io.TextIOWrapper(bytes_stderr, encoding=self.charset)
 
         sys.stdin = input
 
@@ -223,7 +246,10 @@ class CliRunner(object):
                         pass
                 else:
                     os.environ[key] = value
-            yield bytes_output
+            if combined_output:
+                yield bytes_output
+            else:
+                yield bytes_stdout, bytes_stderr
         finally:
             for key, value in iteritems(old_env):
                 if value is None:
@@ -243,8 +269,7 @@ class CliRunner(object):
             clickpkg.formatting.FORCED_WIDTH = old_forced_width
 
     def invoke(self, cli, args=None, input=None, env=None,
-               catch_exceptions=True, color=False, combined_output=False,
-               **extra):
+               catch_exceptions=True, color=False, **extra):
         """Invokes a command in an isolated environment.  The arguments are
         forwarded directly to the command line script, the `extra` keyword
         arguments are passed to the :meth:`~clickpkg.Command.main` function of
@@ -302,8 +327,6 @@ class CliRunner(object):
                 exc_info = sys.exc_info()
             finally:
                 sys.stdout.flush()
-                # import rpdb; rpdb.set_trace()
-                # import pdb; pdb.set_trace()
                 output = out.getvalue()
 
         return Result(runner=self,
