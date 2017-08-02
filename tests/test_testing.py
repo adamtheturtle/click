@@ -231,5 +231,6 @@ def test_result():
 
     runner = CliRunner()
     result = runner.invoke(cli_output, combined_output=False)
-    assert '1' in result.output
-    assert '2' in result.output
+    stdout, stderr = result.output
+    assert '1' in stdout
+    assert '2' in stderr

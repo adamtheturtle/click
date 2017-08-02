@@ -73,7 +73,7 @@ class Result(object):
     """Holds the captured result of an invoked CLI script."""
 
     def __init__(self, runner, output_bytes, exit_code, exception,
-                 exc_info=None):
+                 exc_info=None, combined_output=True):
         #: The runner that created the result
         self.runner = runner
         #: The output as bytes.
@@ -84,12 +84,20 @@ class Result(object):
         self.exception = exception
         #: The traceback
         self.exc_info = exc_info
+        self._combined_output = combined_output
 
     @property
     def output(self):
         """The output as unicode string."""
-        return self.output_bytes.decode(self.runner.charset, 'replace') \
-            .replace('\r\n', '\n')
+        if self._combined_output:
+            return self.output_bytes.decode(self.runner.charset, 'replace') \
+                .replace('\r\n', '\n')
+        stdout_bytes, stderr_bytes = self.output_bytes
+        stdout = stdout_bytes.decode(
+            self.runner.charset, 'replace').replace('\r\n', '\n')
+        stderr = stderr_bytes .decode(
+            self.runner.charset, 'replace').replace('\r\n', '\n')
+        return stdout, stderr
 
     def __repr__(self):
         return '<Result %s>' % (
@@ -272,7 +280,8 @@ class CliRunner(object):
             clickpkg.formatting.FORCED_WIDTH = old_forced_width
 
     def invoke(self, cli, args=None, input=None, env=None,
-               catch_exceptions=True, color=False, **extra):
+               catch_exceptions=True, color=False, combined_output=True,
+               **extra):
         """Invokes a command in an isolated environment.  The arguments are
         forwarded directly to the command line script, the `extra` keyword
         arguments are passed to the :meth:`~clickpkg.Command.main` function of
@@ -301,7 +310,7 @@ class CliRunner(object):
                       application can still override this explicitly.
         """
         exc_info = None
-        with self.isolation(input=input, env=env, color=color) as out:
+        with self.isolation(input=input, env=env, color=color, combined_output=combined_output) as out:
             exception = None
             exit_code = 0
 
@@ -330,12 +339,17 @@ class CliRunner(object):
                 exc_info = sys.exc_info()
             finally:
                 sys.stdout.flush()
-                output = out.getvalue()
+                if combined_output:
+                    output = out.getvalue()
+                else:
+                    stdout, stderr = out
+                    output = (stdout.getvalue(), stderr.getvalue())
 
         return Result(runner=self,
                       output_bytes=output,
                       exit_code=exit_code,
                       exception=exception,
+                      combined_output=combined_output,
                       exc_info=exc_info)
 
     @contextlib.contextmanager
