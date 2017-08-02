@@ -218,7 +218,7 @@ def test_isolation(runner):
         assert stderr.getvalue() == b'2\n'
 
 
-def test_separate_stdout_stderr():
+def test_result():
     @click.command()
     def cli_output():
         sys.stdout.write('1')
@@ -229,3 +229,7 @@ def test_separate_stdout_stderr():
     assert '1' in result.output
     assert '2' in result.output
 
+    runner = CliRunner()
+    result = runner.invoke(cli_output, combined_output=False)
+    assert '1' in result.output
+    assert '2' in result.output
