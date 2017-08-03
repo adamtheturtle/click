@@ -221,16 +221,15 @@ def test_isolation(runner):
 def test_result():
     @click.command()
     def cli_output():
-        sys.stdout.write('1')
-        sys.stderr.write('2')
+        click.echo(1)
+        click.echo(2, err=True)
 
     runner = CliRunner()
     result = runner.invoke(cli_output)
-    assert '1' in result.output
-    assert '2' in result.output
+    assert result.output == '1\n2\n'
 
     runner = CliRunner()
     result = runner.invoke(cli_output, combined_output=False)
     stdout, stderr = result.output
-    assert '1' in stdout
-    assert '2' in stderr
+    assert stdout == '1\n'
+    assert stderr == '2\n'
